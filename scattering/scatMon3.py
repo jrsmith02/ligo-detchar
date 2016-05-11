@@ -25,7 +25,8 @@ else:
 	sys.exit(2)
 
 ### Set the channel that witnesses fringes (to plot specgram for) 
-witness_base = "GDS-CALIB_STRAIN"
+witness_base = "LSC-DARM_IN1_DQ"
+#witness_base = "GDS-CALIB_STRAIN"
 #witness_base = "LSC-MICH_IN1_DQ"
 #witness_base = '%s:ASC-Y_TR_A_NSUM_OUT_DQ' % ifo
 #witness_base = 'LSC-SRCL_IN1_DQ'
@@ -41,8 +42,8 @@ if plotspec==1:
         witness=TimeSeries.fetch(witness_chan, start_time, start_time+dur, verbose=True)
 	if witness_base=="GDS-CALIB_STRAIN":
 		witness=witness.highpass(20,gpass=3) # highpass the witness data
-        elif witness_base=="ASC-AS_B_RF45_I_PIT_OUT_DQ" or witness_base=="ASC-AS_B_RF36_Q_PIT_OUT_DQ" or witness_base=="LSC-MICH_IN1_DQ" or witness_base=="ASC-AS_A_RF45_Q_PIT_OUT_DQ":
-		witness=witness.highpass(10,gpass=3) # highpass the witness data
+        elif witness_base=="LSC-DARM_IN1_DQ" or witness_base=="ASC-AS_B_RF45_I_PIT_OUT_DQ" or witness_base=="ASC-AS_B_RF36_Q_PIT_OUT_DQ" or witness_base=="LSC-MICH_IN1_DQ" or witness_base=="ASC-AS_A_RF45_Q_PIT_OUT_DQ":
+		witness=witness.highpass(15,gpass=3) # highpass the witness data
 	# Calculate DARM spectrogram 
         secsPerFFT = .75 # Hz
 	overlap = 0.9 # fractional overlap
@@ -94,7 +95,7 @@ for channel in position_chans:
 	print position_chan
 	position=TimeSeries.fetch(position_chan, start_time, start_time+dur, verbose=True)
 	position=position.detrend()
-	#position=position.lowpass(35,gpass=3) # lowpass position channel
+	position=position.lowpass(35,gpass=3) # lowpass position channel
 	velocity = (position[1:]-position[:-1])*(position.sample_rate.value)
 	times = (arange(len(velocity.value))+0.5)/(position.sample_rate.value)
 	fudge = 1.0

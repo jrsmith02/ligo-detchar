@@ -44,7 +44,7 @@ if plotspec==1:
         elif witness_base=="ASC-AS_B_RF45_I_PIT_OUT_DQ" or witness_base=="ASC-AS_B_RF36_Q_PIT_OUT_DQ" or witness_base=="LSC-MICH_IN1_DQ" or witness_base=="ASC-AS_A_RF45_Q_PIT_OUT_DQ":
 		witness=witness.highpass(10,gpass=3) # highpass the witness data
 	# Calculate DARM spectrogram 
-        secsPerFFT = .75 # Hz
+        secsPerFFT = .5 # Hz
 	overlap = 0.9 # fractional overlap
         Fs = witness.sample_rate.value
         NFFT = int(round(Fs*secsPerFFT))
@@ -136,7 +136,7 @@ for channel, lever_arm in combined_chans:
 	plt.ylabel('Position [um]',fontsize=16)
 
 	# save figure
-	dir = str(start_time) + '-' + str(dur) + '/'
+	dir = 'tiptilt' + str(start_time) + '-' + str(dur) + '/'
 	if not path.exists(dir):
 		makedirs(dir)
 	filename = dir + ifo + '-Fscatter-' + channel + '-' + str(start_time) + '-' + str(dur) + '.png'

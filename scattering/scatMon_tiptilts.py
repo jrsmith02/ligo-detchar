@@ -1,3 +1,6 @@
+# tell matplotlib to use a non-interactive backend for generating png images
+from matplotlib import use
+use('agg')
 from gwpy.timeseries import TimeSeries
 from gwpy.time import from_gps
 from numpy import sqrt, array, arange, nonzero, argmax, log10

@@ -1,4 +1,8 @@
 # Scan some times using wdq
+# Reads a text file with a column of times
+# Sets the condor accounting_group correctly for omega scans
+# nohup condor run's a wdqER omega scan for each time
+
 import os
 import numpy as np
 

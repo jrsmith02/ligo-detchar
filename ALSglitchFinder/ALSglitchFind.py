@@ -13,6 +13,17 @@
 from gwpy.timeseries import TimeSeries
 from gwpy.time import from_gps
 
+# 1) Load the segment LOCK ALS ARMS
+
+# Will do this later. 
+
+# 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
+ifo = 'H1'
+xchan = '{ifo}:ALS-C_TRX_A_LF_OUT_DQ'
+start=1228730598
+end=1228731098
+xts = TimeSeries.get(xchan, start, end,verbose=True, nproc=args.nproc)
+
 def find_outliers(ts, N):
     ts = ts.value  # strip out Quantity extras
     return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]

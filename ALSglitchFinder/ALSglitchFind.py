@@ -30,14 +30,19 @@ xts = TimeSeries.get(xchan, start, end,verbose=True, nproc=nproc)
 # 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments.
 
 times = xts.times.value
-plot = Plot()
+
+#from matplotlib import pyplot as plt
+#plt.plot(xts)
+#plt.show()
+#plt.savefig('test.png')
+
+plot = Plot(figsize=(12,6))
 ax = plot.gca(xscale='auto-gps', epoch=start, xlim=xlim)
 ax.plot(times, xts.value, label=xts.replace('_', r'\_'),
         color='black', linewidth=0.5)
 plot1 = save_figure(plot, '%s-ALSts-%s.png' % (ifo,gpsstub))
 
-
-
+# Function definitions
 def find_outliers(ts, N):
     ts = ts.value  # strip out Quantity extras
     return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]

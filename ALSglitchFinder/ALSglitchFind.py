@@ -12,6 +12,7 @@
 
 from gwpy.timeseries import TimeSeries
 from gwpy.time import from_gps
+from gwpy.plot import Plot
 
 # 1) Load the segment LOCK ALS ARMS
 
@@ -22,8 +23,20 @@ ifo = 'H1'
 xchan = '{ifo}:ALS-C_TRX_A_LF_OUT_DQ'
 start=1228730598
 end=1228731098
+gpsstub = '%d-%d' % (start, end-start)
 xts = TimeSeries.get(xchan, start, end,verbose=True, nproc=args.nproc)
 
+# 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments.
+
+times = xts.times.value
+plot = Plot(figsize=(12, 6))
+ax = plot.gca(xscale='auto-gps', epoch=start, xlim=xlim)
+ax.plot(times, descaler(xts.value), label=xts.replace('_', r'\_'),
+        color='black', linewidth=0.5)
+plot1 = save_figure(plot, '%s-ALSts-%s.png' % (ifo,gpsstub))
+
+
+/*
 def find_outliers(ts, N):
     ts = ts.value  # strip out Quantity extras
     return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]
@@ -51,7 +64,7 @@ def remove_outliers(ts, N):
             print("%d outliers remain" % len(outliers))
             c += 1
 
-
+*/
 
 
 # EOF

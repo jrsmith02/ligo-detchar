@@ -37,24 +37,23 @@ def save_figure(fig, pngfile, **kwargs):
 # 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
 ifo = 'H1'
 xchan = '%s:ALS-C_TRX_A_LF_OUT_DQ' % ifo
+ychan = '%s:ALS-C_TRY_A_LF_OUT_DQ' % ifo
 start=1228730598
 end=1228731098
-nproc=1
+nproc=4
 gpsstub = '%d-%d' % (start, end-start)
 xts = TimeSeries.get(xchan, start, end,verbose=True, nproc=nproc)
+yts = TimeSeries.get(ychan, start, end,verbose=True, nproc=nproc)
 
 # 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments.
 
 times = xts.times.value
-
-#from matplotlib import pyplot as plt
-#plt.plot(xts)
-#plt.show()
-#plt.savefig('test.png')
 xlim = xts.span
 plot = Plot(figsize=(12,6))
 ax = plot.gca(xscale='auto-gps', epoch=start, xlim=xlim)
-ax.plot(times, xts.value, color='black', linewidth=0.5)
+ax.plot(times, xts.value, color='blue', label=xchan.replace('_', r'\_'), linewidth=0.5)
+ax.plot(times, yts.value, color='green', label=ychan.replace('_', r'\_'), linewidth=0.5)
+ax.legend(loc='best')
 plot1 = save_figure(plot, '%s-ALSts-%s.png' % (ifo,gpsstub))
 
 # Function definitions

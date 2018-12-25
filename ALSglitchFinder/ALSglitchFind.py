@@ -10,9 +10,25 @@
 # 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments. 
 # 5) Tune Nsigma until the correct glitches are being found without false alarms.)
 
+import numpy 
+
 from gwpy.timeseries import TimeSeries
 from gwpy.time import from_gps
 from gwpy.plot import Plot
+from matplotlib import use
+use('agg')  # nopep8
+
+def save_figure(fig, pngfile, **kwargs):
+    try:
+        fig.save(pngfile, **kwargs)
+    except (RuntimeError, IOError, IndexError):
+        try:
+            fig.save(pngfile, **kwargs)
+        except (RuntimeError, IOError, IndexError) as e:
+            warnings.warn('Error saving {0}: {1}'.format(pngfile, str(e)))
+            return
+    fig.close()
+    return pngfile
 
 # 1) Load the segment LOCK ALS ARMS
 
@@ -35,14 +51,14 @@ times = xts.times.value
 #plt.plot(xts)
 #plt.show()
 #plt.savefig('test.png')
-
+xlim = xts.span
 plot = Plot(figsize=(12,6))
 ax = plot.gca(xscale='auto-gps', epoch=start, xlim=xlim)
-ax.plot(times, xts.value, label=xts.replace('_', r'\_'),
-        color='black', linewidth=0.5)
+ax.plot(times, xts.value, color='black', linewidth=0.5)
 plot1 = save_figure(plot, '%s-ALSts-%s.png' % (ifo,gpsstub))
 
 # Function definitions
+
 def find_outliers(ts, N):
     ts = ts.value  # strip out Quantity extras
     return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]

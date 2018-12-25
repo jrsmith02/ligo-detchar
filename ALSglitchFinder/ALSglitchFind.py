@@ -45,6 +45,18 @@ gpsstub = '%d-%d' % (start, end-start)
 xts = TimeSeries.get(xchan, start, end,verbose=True, nproc=nproc)
 yts = TimeSeries.get(ychan, start, end,verbose=True, nproc=nproc)
 
+# 3) Calculate the timeseries standard deviation and identify the outliers
+# that exceed N standard deviations, where N is user-specified
+def find_outliers(ts, N):
+    ts = ts.value  # strip out Quantity extras
+    return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]
+
+N=2.0 # number of sigma to use for identifying outliers
+xoutliers = find_outliers(xts, N)
+print xoutliers[1:5]
+xglitches=xts[xoutliers]
+xglitchtimes=xts[xoutliers].times.value
+print xglitchtimes[1:5]
 # 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments.
 
 times = xts.times.value
@@ -53,14 +65,12 @@ plot = Plot(figsize=(12,6))
 ax = plot.gca(xscale='auto-gps', epoch=start, xlim=xlim)
 ax.plot(times, xts.value, color='blue', label=xchan.replace('_', r'\_'), linewidth=0.5)
 ax.plot(times, yts.value, color='green', label=ychan.replace('_', r'\_'), linewidth=0.5)
+ax.plot(xglitchtimes, xglitches.value, color='red', label=xchan.replace('_', r'\_'), linewidth=0.5)
+ax.set_ylabel('Transmitted power [unknown]')
 ax.legend(loc='best')
 plot1 = save_figure(plot, '%s-ALSts-%s.png' % (ifo,gpsstub))
 
 # Function definitions
-
-def find_outliers(ts, N):
-    ts = ts.value  # strip out Quantity extras
-    return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]
 
 
 def remove_outliers(ts, N):

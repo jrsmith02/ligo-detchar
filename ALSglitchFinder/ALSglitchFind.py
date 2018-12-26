@@ -105,20 +105,25 @@ N = args.sigma
 
 xchan = '%s:ALS-C_TRX_A_LF_OUT_DQ' % ifo
 ychan = '%s:ALS-C_TRY_A_LF_OUT_DQ' % ifo
+iscgrd = '%s:GRD-ISC_LOCK_STATE_N' % ifo
 xgrd = '%s:GRD-ALS_XARM_STATE_N' % ifo
 ygrd = '%s:GRD-ALS_YARM_STATE_N' % ifo
 
 # 1) Load the segment LOCK ALS ARMS
-grd_tsd =  TimeSeriesDict.get([xgrd, ygrd], start, end, verbose=(verbosity>1),
+grd_tsd =  TimeSeriesDict.get([iscgrd, xgrd, ygrd], start, end, verbose=(verbosity>1),
                             nproc=nproc)
 
-xflag = grd_tsd[xgrd] > 20 * grd_tsd[xgrd].unit
-xsegs = xflag.to_dqflag()
-xsegs.name = 'X-Guardian state > 20'
+iscflag = grd_tsd[iscgrd] >= 12 * grd_tsd[iscgrd].unit
+iscsegs = iscflag.to_dqflag()
+iscsegs.name = 'ISC-Guardian state > 12'
 
-yflag = grd_tsd[ygrd] > 20 * grd_tsd[ygrd].unit
+xflag = grd_tsd[xgrd] >= -19 * grd_tsd[xgrd].unit # and < 100 (shuttered)?
+xsegs = xflag.to_dqflag()
+xsegs.name = 'X-Guardian state > -19'
+
+yflag = grd_tsd[ygrd] >= -19 * grd_tsd[ygrd].unit  # and < 100 (shuttered)?
 ysegs = yflag.to_dqflag()
-ysegs.name = 'Y-Guardian state > 20'
+ysegs.name = 'Y-Guardian state > -19'
 
 # 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
 
@@ -141,7 +146,7 @@ def get_plotable_outliers(ts, N):
     ret = ts.copy()
     outliers = abs(ts -m) > N * s
     inliers = numpy.invert(outliers.value)
-    ret[outliers] = m / 2
+    #ret[outliers] = m / 2
     ret[inliers] = 0
     return ret
 
@@ -172,13 +177,14 @@ ax = plot.gca()
 ax.plot(yts, color='green', label=ychan.replace('_', r'\_'),
         linewidth=0.5)
 ax.plot(xglitch_plot, color='red',marker=".",
-        label='X-glitches', linewidth=0.5)
+        label='X-glitches', linewidth=0)
 ax.plot(yglitch_plot, color='magenta',marker=".",
-        label='Y-glitches', linewidth=0.5)
+        label='Y-glitches', linewidth=0)
 ax.set_ylabel('Transmitted power [unknown]')
 ax.legend(loc='best')
-plot.add_segments_bar(xsegs, label='Guardian-X')
-plot.add_segments_bar(ysegs, label='Guardian-Y')
+plot.add_segments_bar(iscsegs, label='grdISCgt12')
+plot.add_segments_bar(xsegs, label='grdXgt-19')
+plot.add_segments_bar(ysegs, label='grdYgt-19')
 
 out_filename = os.path.join(args.outdir, '{:s}-ALSts-{:s}.png'.format(ifo,gpsstub))
 plot1 = save_figure(plot, out_filename)

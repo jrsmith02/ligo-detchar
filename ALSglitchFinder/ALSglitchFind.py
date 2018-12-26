@@ -114,11 +114,11 @@ grd_tsd =  TimeSeriesDict.get([xgrd, ygrd], start, end, verbose=(verbosity>1),
 
 xflag = grd_tsd[xgrd] > 20 * grd_tsd[xgrd].unit
 xsegs = xflag.to_dqflag()
-xsegs.name = 'X-Guardian  state > 20'
+xsegs.name = 'X-Guardian state > 20'
 
 yflag = grd_tsd[ygrd] > 20 * grd_tsd[ygrd].unit
 ysegs = yflag.to_dqflag()
-ysegs.name = 'Y-guardian'
+ysegs.name = 'Y-Guardian state > 20'
 
 # 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
 
@@ -137,8 +137,14 @@ def find_outliers(ts, N):
 xoutliers = find_outliers(xts, N)
 logger.info('x outliers: {}'.format(xoutliers[1:5]))
 xglitches=xts[xoutliers]
-xglitchtimes=xts[xoutliers].times.value
-print 'Glitches: ', [int(x) for x in xglitchtimes[1:5]]
+
+youtliers = find_outliers(yts, N)
+logger.info('x outliers: {}'.format(youtliers[1:5]))
+yglitches=xts[youtliers]
+
+#print xoutliers[1:10]
+#xglitchtimes=xts[xoutliers].times.value
+#print 'Glitches: ', [int(x) for x in xglitchtimes[1:5]]
 
 # 4) Plot both timeseries (blue and green) and then
 #    highlight what outliers were identified in
@@ -151,8 +157,10 @@ plot = xts.plot(figsize=(12,6), color='blue', label=xchan.replace('_', r'\_'),
 ax = plot.gca()
 ax.plot(yts, color='green', label=ychan.replace('_', r'\_'),
         linewidth=0.5)
-ax.plot( xglitches, color='red',
+ax.plot(xglitches, color='red',marker=".",
         label='X-glitches', linewidth=0.5)
+ax.plot(yglitches, color='magenta',marker=".",
+        label='Y-glitches', linewidth=0.5)
 ax.set_ylabel('Transmitted power [unknown]')
 ax.legend(loc='best')
 plot.add_segments_bar(xsegs, label='Guardian-X')

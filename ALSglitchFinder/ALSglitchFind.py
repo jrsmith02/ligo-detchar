@@ -141,9 +141,9 @@ xglitches=xts[xoutliers]
 youtliers = find_outliers(yts, N)
 logger.info('x outliers: {}'.format(youtliers[1:5]))
 yglitches=xts[youtliers]
-
 #print xoutliers[1:10]
-#xglitchtimes=xts[xoutliers].times.value
+xglitchtimes=xts[xoutliers].times.value
+yglitchtimes=yts[youtliers].times.value
 #print 'Glitches: ', [int(x) for x in xglitchtimes[1:5]]
 
 # 4) Plot both timeseries (blue and green) and then
@@ -159,7 +159,7 @@ ax.plot(yts, color='green', label=ychan.replace('_', r'\_'),
         linewidth=0.5)
 ax.plot(xglitches, color='red',marker=".",
         label='X-glitches', linewidth=0.5)
-ax.plot(yglitches, color='magenta',marker=".",
+ax.plot(yglitches.value, color='magenta',marker=".",
         label='Y-glitches', linewidth=0.5)
 ax.set_ylabel('Transmitted power [unknown]')
 ax.legend(loc='best')

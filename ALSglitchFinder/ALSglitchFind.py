@@ -134,6 +134,17 @@ def find_outliers(ts, N):
     ts = ts.value  # strip out Quantity extras
     return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]
 
+def get_plotable_outliers(ts, N):
+    '''Like find outliers but returns a timeseries covering whole span'''
+    m = ts.mean()
+    s = ts.std()
+    ret = ts.copy()
+    outliers = abs(ts -m) > N * s
+    inliers = numpy.invert(outliers.value)
+    ret[outliers] = m / 2
+    ret[inliers] = 0
+    return ret
+
 xoutliers = find_outliers(xts, N)
 logger.info('x outliers: {}'.format(xoutliers[1:5]))
 xglitches=xts[xoutliers]
@@ -146,6 +157,9 @@ xglitchtimes=xts[xoutliers].times.value
 yglitchtimes=yts[youtliers].times.value
 #print 'Glitches: ', [int(x) for x in xglitchtimes[1:5]]
 
+xglitch_plot = get_plotable_outliers(xts, N)
+yglitch_plot = get_plotable_outliers(yts, N)
+
 # 4) Plot both timeseries (blue and green) and then
 #    highlight what outliers were identified in
 #    red timeseries overlay fragments.
@@ -157,9 +171,9 @@ plot = xts.plot(figsize=(12,6), color='blue', label=xchan.replace('_', r'\_'),
 ax = plot.gca()
 ax.plot(yts, color='green', label=ychan.replace('_', r'\_'),
         linewidth=0.5)
-ax.plot(xglitches, color='red',marker=".",
+ax.plot(xglitch_plot, color='red',marker=".",
         label='X-glitches', linewidth=0.5)
-ax.plot(yglitches.value, color='magenta',marker=".",
+ax.plot(yglitch_plot, color='magenta',marker=".",
         label='Y-glitches', linewidth=0.5)
 ax.set_ylabel('Transmitted power [unknown]')
 ax.legend(loc='best')

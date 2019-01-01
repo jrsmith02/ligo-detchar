@@ -5,12 +5,12 @@
 
 # 1) Loads the guardian segments for ALS XARM/YARM and ISC and 
 # decides what times to include
-# 2) loads raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY 
-# 3) Calculates the standard deviation of these timeseries in 
+# 2) loads raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
+# 3) Calculates the standard deviation of these timeseries in
 # the correct guardian segments
-#4) Identifies any outliers that exceed N standard deviations, 
+# 4) Identifies any outliers that exceed N standard deviations,
 # where N is user-specified
-#5) Plots both timeseries and highlights outliers in red
+# 5) Plots both timeseries and highlights outliers in red
 
 import time
 start_of_run = time.time()  #nopep8

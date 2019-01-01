@@ -16,13 +16,14 @@ start_of_run = time.time()  #nopep8
 import numpy
 import argparse
 import os
+import re
 import logging
 import warnings
 from collections import OrderedDict
 from scipy.interpolate import UnivariateSpline
 
 
-from gwpy.timeseries import TimeSeries, TimeSeriesDict
+from gwpy.timeseries import TimeSeries, TimeSeriesDict, StateTimeSeries
 from gwpy.time import from_gps
 from gwpy.plot import Plot
 from matplotlib import use
@@ -32,6 +33,10 @@ from gwpy.segments import DataQualityFlag
 from gwpy.segments import SegmentList
 from gwpy.segments import Segment
 from gwpy.time import to_gps
+from matplotlib import rcParams
+
+rcParams['text.usetex'] = False
+
 
 __author__ = 'Joshua Smith'
 __email__ = 'joshua.smith@ligo.org'
@@ -61,6 +66,88 @@ def unique(list_):
     ['b', 'c', 'a', 'd', 'e']
     """
     return list(OrderedDict.fromkeys(list_).keys())
+
+
+def get_guardian_segs(gts, ts):
+    """Examine  a time series of Guardian states, returning a segment list
+    of periods when the  green laser is on
+
+    INPUT
+    =====
+    gts: TimeSeries of Guardian state
+    ts: TimeSeries of data to examine.
+        Used here only to resize flags appropriately
+
+    RETURN
+    ======
+    segs:   SegmentList for Green laser on
+    flags:  StateTimeSeries for us with input ts
+    """
+
+    f1 = -19 <= gts.value
+    f2 = gts.value < 100
+    flg = numpy.logical_and(f1, f2)
+    flg = f1
+    flag = StateTimeSeries(flg, t0=gts.t0, dt=gts.dt,
+                           name=gts.name+' green laser', channel=gts.channel)
+
+    segs = flag.to_dqflag()
+
+    flag2 = flag.copy()
+    # resample flags to match data array
+    flag = resample_bool(flag, gts, ts)
+    flag.name = 'green laser on'
+
+    return segs, flag
+
+def resample_bool(inflag, ints, outts):
+    out_array = numpy.ndarray(len(outts), dtype=bool)
+    fact = int(len(outts)/len(ints))
+    for i in range(0, len(ints)):
+        if inflag[i]:
+            for o in range(i*fact, (i+1)*fact):
+                out_array[o] = True
+
+    outflag = StateTimeSeries(out_array, t0=outts.t0, dt=outts.dt)
+
+    return outflag
+
+
+def plotit(segs, flag, ts, axis):
+    """plot timeseries segments and outliers"""
+    global ifo, gpsstub
+
+    mean = ts[flag].mean()
+    std = ts[flag].std()
+    low_limit = mean - N * std
+
+    chan = ts.channel.name
+    lim = ts.span
+
+    plot = None
+    for seg in segs.active:
+        partial_ts = ts.crop(seg[0], seg[1])
+        if plot == None:
+            plot = partial_ts.plot(figsize=(18, 6), color='blue', marker='.',
+                                    markersize=1, label=chan, linewidth=0)
+            ax = plot.gca()
+        else:
+            ax.plot(partial_ts, color='blue', marker='.', markersize=1,
+                     linewidth=0)
+            outlier_ts = partial_ts.copy()
+            outlier_ts[abs(outlier_ts - mean) <= N * std] = low_limit
+            ax.plot(outlier_ts, color='red', marker='.', markersize=1,
+                     linewidth=0)
+
+    ax.set_xlim(lim[0], lim[1])
+    ax.set_title('{:s} and glitches'.format(chan))
+    plot.add_segments_bar(segs, label='{:s}-grn-lsr'.format(axis))
+    plot.add_segments_bar(iscsegs, label=iscsegs.name)
+
+    out_filename = os.path.join(args.outdir, '{:s}-ALS-{:s}-{:s}.png'.format(
+            ifo, axis, gpsstub))
+    plot.savefig(out_filename)
+
 
 # command line options
 parser = argparse.ArgumentParser(description=__doc__, prog=prog)
@@ -103,121 +190,38 @@ ifo = args.ifo
 nproc = args.nproc
 N = args.sigma
 
+logger.info('args: {}'.format(args))
 xchan = '%s:ALS-C_TRX_A_LF_OUT_DQ' % ifo
 ychan = '%s:ALS-C_TRY_A_LF_OUT_DQ' % ifo
 iscgrd = '%s:GRD-ISC_LOCK_STATE_N' % ifo
 xgrd = '%s:GRD-ALS_XARM_STATE_N' % ifo
 ygrd = '%s:GRD-ALS_YARM_STATE_N' % ifo
 
-# 1) Load the segment LOCK ALS ARMS
-grd_tsd =  TimeSeriesDict.get([iscgrd, xgrd, ygrd], start, end, verbose=(verbosity>1),
-                            nproc=nproc)
+# get a list of ALL chanel names for efficient read/transfer
+chan_list = [iscgrd, xgrd, ygrd, xchan, ychan]
 
-iscflag = grd_tsd[iscgrd] >= 12 * grd_tsd[iscgrd].unit
-iscsegs = iscflag.to_dqflag()
-iscsegs.name = 'ISC-Guardian state > 12'
-
-xflag = grd_tsd[xgrd] >= -19 * grd_tsd[xgrd].unit # and < 100 (shuttered)?
-xsegs = xflag.to_dqflag()
-xsegs.name = 'X-Guardian state > -19'
-
-yflag = grd_tsd[ygrd] >= -19 * grd_tsd[ygrd].unit  # and < 100 (shuttered)?
-ysegs = yflag.to_dqflag()
-ysegs.name = 'Y-Guardian state > -19'
-
-# 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY
-
-gpsstub = '%d-%d' % (start, end-start)
-tsd = TimeSeriesDict.get([xchan, ychan], start, end, verbose=(verbosity>1),
-                         nproc=nproc)
+# 1) Get all channels atonce for efficiency: LOCK ALS ARMS & Guardian states
+tsd =  TimeSeriesDict.get(chan_list, start, end, verbose=(verbosity > 1),
+                          nproc=nproc)
+# move the ALs channels to convenience variables
 xts = tsd[xchan]
 yts = tsd[ychan]
 
-# 3) Calculate the timeseries standard deviation and identify the outliers
-# that exceed N standard deviations, where N is user-specified
-def find_outliers(ts, N):
-    ts = ts.value  # strip out Quantity extras
-    return numpy.nonzero(abs(ts - numpy.mean(ts)) > N*numpy.std(ts))[0]
+iscflag = tsd[iscgrd] >= 12 * tsd[iscgrd].unit
+iscsegs = iscflag.to_dqflag()
+iscsegs.name = u'ISC Grdn > 12'
 
-def get_plotable_outliers(ts, N):
-    '''Like find outliers but returns a timeseries covering whole span'''
-    m = ts.mean()
-    s = ts.std()
-    ret = ts.copy()
-    outliers = abs(ts -m) > N * s
-    inliers = numpy.invert(outliers.value)
-    #ret[outliers] = m / 2
-    ret[inliers] = 0
-    return ret
+xsegs, xflag = get_guardian_segs(tsd[xgrd], tsd[xchan])
+xsegs.name = 'X-green laser on'
 
-xoutliers = find_outliers(xts, N)
-logger.info('x outliers: {}'.format(xoutliers[1:5]))
-xglitches=xts[xoutliers]
+ysegs, yflag = get_guardian_segs(tsd[ygrd], tsd[ychan])
+ysegs.name = 'Y-green laser on'
 
-youtliers = find_outliers(yts, N)
-logger.info('x outliers: {}'.format(youtliers[1:5]))
-yglitches=xts[youtliers]
-#print xoutliers[1:10]
-xglitchtimes=xts[xoutliers].times.value
-yglitchtimes=yts[youtliers].times.value
-#print 'Glitches: ', [int(x) for x in xglitchtimes[1:5]]
+gpsstub = '%d-%d' % (start, end-start)
 
-xglitch_plot = get_plotable_outliers(xts, N)
-yglitch_plot = get_plotable_outliers(yts, N)
-
-# 4) Plot both timeseries (blue and green) and then
-#    highlight what outliers were identified in
-#    red timeseries overlay fragments.
-
-times = xts.times.value
-xlim = xts.span
-plot = xts.plot(figsize=(12,6), color='blue', label=xchan.replace('_', r'\_'),
-        linewidth=0.5)
-ax = plot.gca()
-ax.plot(yts, color='green', label=ychan.replace('_', r'\_'),
-        linewidth=0.5)
-ax.plot(xglitch_plot, color='red',marker=".",
-        label='X-glitches', linewidth=0)
-ax.plot(yglitch_plot, color='magenta',marker=".",
-        label='Y-glitches', linewidth=0)
-ax.set_ylabel('Transmitted power [unknown]')
-ax.legend(loc='best')
-plot.add_segments_bar(iscsegs, label='grdISCgt12')
-plot.add_segments_bar(xsegs, label='grdXgt-19')
-plot.add_segments_bar(ysegs, label='grdYgt-19')
-
-out_filename = os.path.join(args.outdir, '{:s}-ALSts-{:s}.png'.format(ifo,gpsstub))
-plot1 = save_figure(plot, out_filename)
+plotit( xsegs, xflag, xts, 'X')
+plotit(ysegs, yflag, yts, 'Y')
 
 run_time = time.time() - start_of_run
 logger.info('Runtime: {:.1f} seconds'.format(run_time))
 
-
-# Function definitions
-
-
-def remove_outliers(ts, N):
-    outliers = find_outliers(ts, N)
-    c = 1
-    if outliers.any():
-        print("-- Found %d outliers in %s, recursively removing"
-              % (len(outliers), ts.name))
-        while outliers.any():
-            unit = ts.unit
-            cache = outliers
-            mask = numpy.ones(len(ts), dtype=bool)
-            mask[outliers] = False
-            spline = UnivariateSpline(ts[mask].times.value, ts[mask].value,
-                                      s=0, k=3)
-            ts[outliers] = (spline(ts[outliers].times.value) * unit)
-            outliers = find_outliers(ts, N)
-            print("Completed %d removal cycles" % c)
-            if numpy.array_equal(outliers, cache):
-                print("Outliers did not change, breaking recursion")
-                break
-            print("%d outliers remain" % len(outliers))
-            c += 1
-
-
-
-# EOF

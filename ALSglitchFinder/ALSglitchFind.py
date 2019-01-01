@@ -68,7 +68,7 @@ def unique(list_):
     return list(OrderedDict.fromkeys(list_).keys())
 
 
-def get_guardian_segs(gts, ts):
+def get_guardian_segs(gts, ts, iscfla):
     """Examine  a time series of Guardian states, returning a segment list
     of periods when the  green laser is on
 
@@ -87,18 +87,22 @@ def get_guardian_segs(gts, ts):
     f1 = -19 <= gts.value
     f2 = gts.value < 100
     flg = numpy.logical_and(f1, f2)
-    flg = f1
     flag = StateTimeSeries(flg, t0=gts.t0, dt=gts.dt,
                            name=gts.name+' green laser', channel=gts.channel)
 
     segs = flag.to_dqflag()
 
-    flag2 = flag.copy()
     # resample flags to match data array
     flag = resample_bool(flag, gts, ts)
     flag.name = 'green laser on'
 
-    return segs, flag
+    cflg = numpy.logical_and(flg, iscflag.value)
+    combo_flag = StateTimeSeries(cflg, t0=iscflag.t0, dt=iscflag.dt,
+                           name=gts.name+' green laser', channel=gts.channel)
+    combo_segs = combo_flag.to_dqflag()
+
+    combo_flag = resample_bool(combo_flag, iscflag, ts)
+    return segs, flag, combo_segs, combo_flag
 
 def resample_bool(inflag, ints, outts):
     out_array = numpy.ndarray(len(outts), dtype=bool)
@@ -113,8 +117,16 @@ def resample_bool(inflag, ints, outts):
     return outflag
 
 
-def plotit(segs, flag, ts, axis):
-    """plot timeseries segments and outliers"""
+def plotit(segs, combo_segs, flag, ts, axis):
+    """plot timeseries segments and outliers
+    INPUT
+    ======
+    segs -  segments describing when the green laser is on for this axis
+    combo_segs -  segments that combine segs  and ISC in a proper state
+    flag -  a Boolean array corresponding to combo_segs
+    ts -  the time series to plot and analyze during combo_seg
+    axis  - 'X' or 'Y'  for labels
+    """
     global ifo, gpsstub
 
     mean = ts[flag].mean()
@@ -125,7 +137,10 @@ def plotit(segs, flag, ts, axis):
     lim = ts.span
 
     plot = None
-    for seg in segs.active:
+
+    for seg in combo_segs.active:
+        #  plot only the active segments as dots so we don't have lines through
+        #  the unanalyzed segments
         partial_ts = ts.crop(seg[0], seg[1])
         if plot == None:
             plot = partial_ts.plot(figsize=(18, 6), color='blue', marker='.',
@@ -143,6 +158,7 @@ def plotit(segs, flag, ts, axis):
     ax.set_title('{:s} and glitches'.format(chan))
     plot.add_segments_bar(segs, label='{:s}-grn-lsr'.format(axis))
     plot.add_segments_bar(iscsegs, label=iscsegs.name)
+    plot.add_segments_bar(combo_segs, label='ISC & grn lsr')
 
     out_filename = os.path.join(args.outdir, '{:s}-ALS-{:s}-{:s}.png'.format(
             ifo, axis, gpsstub))
@@ -211,16 +227,18 @@ iscflag = tsd[iscgrd] >= 12 * tsd[iscgrd].unit
 iscsegs = iscflag.to_dqflag()
 iscsegs.name = u'ISC Grdn > 12'
 
-xsegs, xflag = get_guardian_segs(tsd[xgrd], tsd[xchan])
+xsegs, xflag, xcombo_segs, xcombo_flag = get_guardian_segs(tsd[xgrd],
+                                                           tsd[xchan], iscflag)
 xsegs.name = 'X-green laser on'
 
-ysegs, yflag = get_guardian_segs(tsd[ygrd], tsd[ychan])
+ysegs, yflag, ycombo_segs, ycombo_flag = get_guardian_segs(tsd[ygrd],
+                                                           tsd[ychan], iscflag)
 ysegs.name = 'Y-green laser on'
 
 gpsstub = '%d-%d' % (start, end-start)
 
-plotit( xsegs, xflag, xts, 'X')
-plotit(ysegs, yflag, yts, 'Y')
+plotit( xsegs, xcombo_segs, xcombo_flag, xts, 'X')
+plotit(ysegs, ycombo_segs, ycombo_flag, yts, 'Y')
 
 run_time = time.time() - start_of_run
 logger.info('Runtime: {:.1f} seconds'.format(run_time))

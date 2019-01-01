@@ -1,14 +1,16 @@
-# This is rough code to respond to the request for an ALS glitch finder in:
+# This is first draft code to respond to the request for an 
+# ALS glitch monitor in:
 # https://alog.ligo-wa.caltech.edu/aLOG/index.php?callRep=45924
 # Josh Smith and Joe Areeda
 
-# Pseudo Code:
-# 1) Load the segment LOCK ALS ARMS 
-# 2) load raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY 
-# 3) Calculate the timeseries standard deviation and identify the outliers
-# that exceed N standard deviations, where N is user-specified
-# 4) Plot both timeseries (blue and green) and then highlight what outliers were identified in red timeseries overlay fragments. 
-# 5) Tune Nsigma until the correct glitches are being found without false alarms.)
+# 1) Loads the guardian segments for ALS XARM/YARM and ISC and 
+# decides what times to include
+# 2) loads raw data for H1:ALS-C_TRX_A_LF_OUT_DQ and TRY 
+# 3) Calculates the standard deviation of these timeseries in 
+# the correct guardian segments
+#4) Identifies any outliers that exceed N standard deviations, 
+# where N is user-specified
+#5) Plots both timeseries and highlights outliers in red
 
 import time
 start_of_run = time.time()  #nopep8

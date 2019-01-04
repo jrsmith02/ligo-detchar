@@ -117,7 +117,7 @@ for channel in position_chans:
 	scatf3 = 3.0*scatf1
 	scatf4 = 4.0*scatf1
 	scatf8 = 8.0*scatf1
-	scatf16 = 16.0*scatf1
+	scatf13 = 13.0*scatf1
 	# print max scatter values and their times
 	print 'max scatter f1 = ' + str(max(scatf1)) + ' Hz'
 	tofmax = times[argmax(scatf2)]
@@ -142,7 +142,7 @@ for channel in position_chans:
 	
 	# plot fringe prediction timeseries
 	#ax1.plot(times,scatf5, c='blue', linewidth='0.2', label='f5')
-	ax1.plot(times,scatf16, c='purple', linewidth='0.6', label='f16')
+	ax1.plot(times,scatf13, c='purple', linewidth='0.6', label='f13')
 	ax1.plot(times,scatf8, c='green', linewidth='0.6', label='f8')
 	ax1.plot(times,scatf4, c='blue', linewidth='0.6', label='f4')
 	ax1.plot(times,scatf2, c='black', linewidth='0.6', label='f2')

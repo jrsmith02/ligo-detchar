@@ -1,3 +1,14 @@
+# This code creates a spectrogram of the data from a given channel, 
+# then estimates the fringe frequency of scattered light based on the 
+# top-mass motion of LIGO suspensions and overlays that on the spectrogram.
+# Josh Smith 2015
+# 
+# To do: 
+# Input argument handling
+# Use timeseries dict to get all channels at once
+# Make plots using Q-transform rather than spectrogram to better visualize 
+# the fringes. 
+
 # tell matplotlib to use a non-interactive backend for generating png images
 from matplotlib import use
 use('agg')
@@ -10,6 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib.image import NonUniformImage
 import matplotlib.mlab as mlab
 from os import makedirs, path
+import string 
 
 # read input argumentsi (update this to use argparse)
 if len(sys.argv) == 6:
@@ -26,7 +38,7 @@ else:
 
 ### Set the channel that witnesses fringes (to plot specgram for) 
 #witness_base = "LSC-DARM_IN1_DQ"
-witness_base = "GDS-CALIB_STRAIN"
+#witness_base = "GDS-CALIB_STRAIN"
 #witness_base = "LSC-MICH_IN1_DQ"
 #witness_base = '%s:ASC-Y_TR_A_NSUM_OUT_DQ' % ifo
 #witness_base = 'LSC-SRCL_IN1_DQ'
@@ -34,6 +46,7 @@ witness_base = "GDS-CALIB_STRAIN"
 #witness_base = "ASC-AS_A_RF45_Q_PIT_OUT_DQ" 
 #witness_base = "ASC-AS_B_RF36_Q_PIT_OUT_DQ"
 #witness_base = "OMC-LSC_SERVO_OUT_DQ"
+witness_base = "ASC-Y_TR_B_PIT_OUT_DQ"
 
 if plotspec==1:
 	witness_chan = ifo + ':' + witness_base
@@ -45,7 +58,7 @@ if plotspec==1:
         elif witness_base=="LSC-DARM_IN1_DQ" or witness_base=="ASC-AS_B_RF45_I_PIT_OUT_DQ" or witness_base=="ASC-AS_B_RF36_Q_PIT_OUT_DQ" or witness_base=="LSC-MICH_IN1_DQ" or witness_base=="ASC-AS_A_RF45_Q_PIT_OUT_DQ":
 		witness=witness.highpass(15,gpass=3) # highpass the witness data
 	# Calculate DARM spectrogram 
-        secsPerFFT = .5 # Hz
+        secsPerFFT = .75 # Hz
 	overlap = 0.9 # fractional overlap
         Fs = witness.sample_rate.value
         NFFT = int(round(Fs*secsPerFFT))
@@ -87,6 +100,7 @@ position_chans = [\
 'SUS-SRM_M1_DAMP_L_IN1_DQ',\
 'SUS-TMSX_M1_DAMP_L_IN1_DQ',\
 'SUS-TMSY_M1_DAMP_L_IN1_DQ',\
+'OMC-PZT2_MON_DC_OUT_DQ',\
 ]
 
 ### get data for each position channel, calculate fringe freq
@@ -95,7 +109,7 @@ for channel in position_chans:
 	print position_chan
 	position=TimeSeries.fetch(position_chan, start_time, start_time+dur, verbose=True)
 	position=position.detrend()
-	position=position.lowpass(35,gpass=3) # lowpass position channel
+	position=position.lowpass(5,gpass=3) # lowpass position channel
 	velocity = (position[1:]-position[:-1])*(position.sample_rate.value)
 	times = (arange(len(velocity.value))+0.5)/(position.sample_rate.value)
 	fudge = 1.0
@@ -137,16 +151,18 @@ for channel in position_chans:
         #	ax1.plot(highscattimes, highscatf2, c='r', label='veto', marker='.',linestyle='')
 	ax1.legend( loc='upper right' )
 	if plotspec==1:
-		title = 'Specgram of ' + witness_chan + '\nScattering fringe frequency for ' + position_chan
+		title = 'Specgram of ' + string.replace(witness_chan,'_','\_') + '\nScattering fringe frequency for ' + string.replace(position_chan,'_','\_')
 	else: 
-        	title = 'Scattering fringe frequency for ' + position_chan
-        plt.title(title,fontsize=16)
+       		title = 'Scattering fringe frequency for ' + string.replace(position_chan,'_','\_')
+	# plt.title(title,fontsize=16)
         plt.yscale('linear')
 	plt.ylabel('Frequency [Hz]',fontsize=16)
 	xlab = 'Time [seconds] from ' + str(startutc) + ' UTC'
         plt.xlim(0,max(times))
-        plt.ylim(1,50)
+        plt.ylim(0,50)
 	ax2 = fig.add_subplot(212)
+	#print(len(position.data))
+	#print(position.data)
 	ax2.plot(times,position[1:])
 	plt.xlabel(xlab,fontsize=16)
 	plt.xlim(0,max(times))

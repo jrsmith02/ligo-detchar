@@ -23,6 +23,7 @@ import logging
 import warnings
 from collections import OrderedDict
 from scipy.interpolate import UnivariateSpline
+from matplotlib import pyplot as plt
 
 
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, StateTimeSeries
@@ -70,7 +71,7 @@ def unique(list_):
     return list(OrderedDict.fromkeys(list_).keys())
 
 
-def get_guardian_segs(gts, ts, iscfla):
+def get_guardian_segs(gts, ts, iscts, wfsts):
     """Examine  a time series of Guardian states, returning a segment list
     of periods when the  green laser is on
 
@@ -92,19 +93,31 @@ def get_guardian_segs(gts, ts, iscfla):
     flag = StateTimeSeries(flg, t0=gts.t0, dt=gts.dt,
                            name=gts.name+' green laser', channel=gts.channel)
 
-    segs = flag.to_dqflag()
+    grn_segs = flag.to_dqflag()
 
-    # resample flags to match data array
-    flag = resample_bool(flag, gts, ts)
-    flag.name = 'green laser on'
+    iscflag = iscts >= 12 * iscts.unit
+    isc_flags =  StateTimeSeries(iscflag, t0=iscflag.t0, dt=iscflag.dt,
+                                 name=iscts.name, channel=iscts.channel)
+    isc_segs = isc_flags.to_dqflag()
+    isc_segs.name = u'ISC Grdn > 12'
 
     cflg = numpy.logical_and(flg, iscflag.value)
+
+    wfs_flg = wfsts.value > 0
+    wfs_flags = StateTimeSeries(wfs_flg, t0=wfsts.t0, dt=wfsts.dt,
+                                 name=wfsts.name, channel=wfsts.channel)
+    wfs_segs = wfs_flags.to_dqflag()
+    wfs_segs.name = u'WFS TRIG'
+
+    cflg = numpy.logical_and(cflg, wfs_flags.value)
+
     combo_flag = StateTimeSeries(cflg, t0=iscflag.t0, dt=iscflag.dt,
                            name=gts.name+' green laser', channel=gts.channel)
     combo_segs = combo_flag.to_dqflag()
 
     combo_flag = resample_bool(combo_flag, iscflag, ts)
-    return segs, flag, combo_segs, combo_flag
+
+    return grn_segs, isc_segs, wfs_segs, combo_segs, combo_flag
 
 def resample_bool(inflag, ints, outts):
     out_array = numpy.ndarray(len(outts), dtype=bool)
@@ -119,7 +132,7 @@ def resample_bool(inflag, ints, outts):
     return outflag
 
 
-def plotit(segs, combo_segs, flag, ts, axis):
+def plotit(segs, isc_segs, wfs_segs, combo_segs, flag, ts, axis):
     """plot timeseries segments and outliers
     INPUT
     ======
@@ -129,7 +142,7 @@ def plotit(segs, combo_segs, flag, ts, axis):
     ts -  the time series to plot and analyze during combo_seg
     axis  - 'X' or 'Y'  for labels
     """
-    global ifo, gpsstub
+    global ifo, gpsstub, N, args
 
     mean = ts[flag].mean()
     std = ts[flag].std()
@@ -143,28 +156,65 @@ def plotit(segs, combo_segs, flag, ts, axis):
     for seg in combo_segs.active:
         #  plot only the active segments as dots so we don't have lines through
         #  the unanalyzed segments
-        partial_ts = ts.crop(seg[0], seg[1])
-        if plot == None:
-            plot = partial_ts.plot(figsize=(18, 6), color='blue', marker='.',
-                                    markersize=1, label=chan, linewidth=0)
-            ax = plot.gca()
-        else:
-            ax.plot(partial_ts, color='blue', marker='.', markersize=1,
-                     linewidth=0)
-            outlier_ts = partial_ts.copy()
-            outlier_ts[abs(outlier_ts - mean) <= N * std] = low_limit
-            ax.plot(outlier_ts, color='red', marker='.', markersize=1,
-                     linewidth=0)
+        seg = seg.protract(-1)
 
+        if seg[1] - seg[0] > 1:
+            partial_ts = ts.crop(seg[0], seg[1])
+
+            outlier_ts = partial_ts.copy()
+            omax = outlier_ts.max()
+
+            cntr = (outlier_ts - mean).abs() <= N * std
+            outlier_ts[cntr] = omax * 2
+            out_count = len(partial_ts) - cntr.sum().value
+            logger.info('Seg: {}, size: {:d}, outliers {:.0f}'.format(
+                    seg, len(partial_ts), out_count))
+
+            if plot == None:
+                plot = partial_ts.plot(figsize=(18, 6), color='blue', marker='.',
+                                        markersize=1, label=chan, linewidth=0)
+                ax = plot.gca()
+
+                plot2 = outlier_ts.plot(figsize=(18, 6), color='red', marker='.',
+                                        markersize=4, label=chan, linewidth=0)
+                ax2 = plot2.gca()
+            else:
+                ax.plot(partial_ts, color='blue', marker='.', markersize=1,
+                         linewidth=0)
+
+                ax.plot(outlier_ts,  color='red', markersize=1,
+                         linewidth=0, marker='.')
+
+                ax2.plot(outlier_ts, color='red', markersize=1,
+                        linewidth=0, marker='.')
+
+    ax2.set_ylim(0, ts.max().value * 1.1)
+    ax2.set_xlim(lim[0], lim[1])
+    ax2.set_title('Test {:s} and glitches'.format(chan))
+    testfnane = os.path.join(args.outdir, '{:s}-Tst-{:s}-{:s}.png'.format(
+            ifo, axis, gpsstub))
+    plot2.add_segments_bar(combo_segs, label='Combined segs')
+    plot2.add_segments_bar(wfs_segs, label='{:s}-WFS trg delay'.format(axis))
+
+    plot2.add_segments_bar(segs, label='{:s}-grn-lsr'.format(axis))
+    plot2.add_segments_bar(isc_segs, label=isc_segs.name)
+
+    plot2.savefig(testfnane)
+    logger.info('Wrote test image {:s}'.format(testfnane))
+
+    ax.set_ylim(0, ts.max().value*1.1)
     ax.set_xlim(lim[0], lim[1])
     ax.set_title('{:s} and glitches'.format(chan))
+    plot.add_segments_bar(combo_segs, label='Combined segs')
+    plot.add_segments_bar(wfs_segs, label='{:s}-WFS trg delay'.format(axis))
+
     plot.add_segments_bar(segs, label='{:s}-grn-lsr'.format(axis))
-    plot.add_segments_bar(iscsegs, label=iscsegs.name)
-    plot.add_segments_bar(combo_segs, label='ISC & grn lsr')
+    plot.add_segments_bar(isc_segs, label=isc_segs.name)
 
     out_filename = os.path.join(args.outdir, '{:s}-ALS-{:s}-{:s}.png'.format(
             ifo, axis, gpsstub))
     plot.savefig(out_filename)
+    logger.info('Wrote {:s}'.format(out_filename))
 
 
 # command line options
@@ -214,9 +264,11 @@ ychan = '%s:ALS-C_TRY_A_LF_OUT_DQ' % ifo
 iscgrd = '%s:GRD-ISC_LOCK_STATE_N' % ifo
 xgrd = '%s:GRD-ALS_XARM_STATE_N' % ifo
 ygrd = '%s:GRD-ALS_YARM_STATE_N' % ifo
+xwfs = '%s:ALS-X_WFS_DOF_FM_TRIG_DELAYED' % ifo
+ywfs = '%s:ALS-Y_WFS_DOF_FM_TRIG_DELAYED' % ifo
 
 # get a list of ALL chanel names for efficient read/transfer
-chan_list = [iscgrd, xgrd, ygrd, xchan, ychan]
+chan_list = [iscgrd, xgrd, ygrd, xchan, ychan, xwfs, ywfs]
 
 # 1) Get all channels atonce for efficiency: LOCK ALS ARMS & Guardian states
 tsd =  TimeSeriesDict.get(chan_list, start, end, verbose=(verbosity > 1),
@@ -225,22 +277,19 @@ tsd =  TimeSeriesDict.get(chan_list, start, end, verbose=(verbosity > 1),
 xts = tsd[xchan]
 yts = tsd[ychan]
 
-iscflag = tsd[iscgrd] >= 12 * tsd[iscgrd].unit
-iscsegs = iscflag.to_dqflag()
-iscsegs.name = u'ISC Grdn > 12'
 
-xsegs, xflag, xcombo_segs, xcombo_flag = get_guardian_segs(tsd[xgrd],
-                                                           tsd[xchan], iscflag)
+xsegs, isc_segs, xwfs_segs, xcombo_segs, xcombo_flag = get_guardian_segs(tsd[xgrd],
+                                            tsd[xchan], tsd[iscgrd], tsd[xwfs])
 xsegs.name = 'X-green laser on'
 
-ysegs, yflag, ycombo_segs, ycombo_flag = get_guardian_segs(tsd[ygrd],
-                                                           tsd[ychan], iscflag)
+ysegs, isc_segs, ywfs_segs, ycombo_segs, ycombo_flag = get_guardian_segs(tsd[ygrd],
+                                            tsd[ychan], tsd[iscgrd], tsd[ywfs])
 ysegs.name = 'Y-green laser on'
 
 gpsstub = '%d-%d' % (start, end-start)
 
-plotit( xsegs, xcombo_segs, xcombo_flag, xts, 'X')
-plotit(ysegs, ycombo_segs, ycombo_flag, yts, 'Y')
+plotit(xsegs, isc_segs, xwfs_segs, xcombo_segs, xcombo_flag, xts, 'X')
+plotit(ysegs, isc_segs, ywfs_segs, ycombo_segs, ycombo_flag, yts, 'Y')
 
 run_time = time.time() - start_of_run
 logger.info('Runtime: {:.1f} seconds'.format(run_time))

@@ -147,6 +147,7 @@ def plotit(segs, isc_segs, wfs_segs, combo_segs, flag, ts, axis):
     mean = ts[flag].mean()
     std = ts[flag].std()
     low_limit = mean - N * std
+    ll = numpy.float32(low_limit.value) * ts.unit
 
     chan = ts.channel.name
     lim = ts.span
@@ -165,7 +166,7 @@ def plotit(segs, isc_segs, wfs_segs, combo_segs, flag, ts, axis):
             omax = outlier_ts.max()
 
             cntr = (outlier_ts - mean).abs() <= N * std
-            outlier_ts[cntr] = omax * 2
+            outlier_ts[cntr] = ll
             out_count = len(partial_ts) - cntr.sum().value
             logger.info('Seg: {}, size: {:d}, outliers {:.0f}'.format(
                     seg, len(partial_ts), out_count))

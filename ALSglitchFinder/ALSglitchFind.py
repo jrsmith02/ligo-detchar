@@ -15,6 +15,8 @@
 import time
 start_of_run = time.time()  #nopep8
 
+from matplotlib import use
+use('agg')
 import numpy
 import argparse
 import os
@@ -24,7 +26,6 @@ import warnings
 from collections import OrderedDict
 from scipy.interpolate import UnivariateSpline
 from matplotlib import pyplot as plt
-
 
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, StateTimeSeries
 from gwpy.time import from_gps

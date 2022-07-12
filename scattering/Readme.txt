@@ -7,4 +7,4 @@ cd (gwpysoft-2.7) [jrsmith@ldas-pcdev1 scattering]$ python scatMonO3.py L1 12381
 
 Readme for scatMon3.py
 
-For example here: https://alog.ligo-wa.caltech.edu/aLOG/index.php?callRep=23950
+For example here: https://alog.ligo-wa.caltech.edu/aLOG/index.php?callRep=23950 or https://alog.ligo-wa.caltech.edu/aLOG/index.php?callRep=20079
